@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase/config';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPhoneNumber, RecaptchaVerifier, signOut } from 'firebase/auth';
+import { auth } from '../firebase/config';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -30,27 +30,43 @@ export const useAuth = () => {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
+
+  // Email/password login
+  const signInWithEmail = async (email, password) => {
     try {
-      // First try popup method
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithEmailAndPassword(auth, email, password);
       return result.user;
     } catch (error) {
-      // If popup is blocked, try redirect method
-      if (error.code === 'auth/popup-blocked') {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          // The redirect will handle the sign-in, so we don't return anything here
-          return null;
-        } catch (redirectError) {
-          console.error('Error with redirect sign-in:', redirectError);
-          throw redirectError;
-        }
-      } else {
-        console.error('Error signing in with Google:', error);
-        throw error;
-      }
+      console.error('Error signing in with email:', error);
+      throw error;
     }
+  };
+
+  // Email/password registration
+  const registerWithEmail = async (email, password) => {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      return result.user;
+    } catch (error) {
+      console.error('Error registering with email:', error);
+      throw error;
+    }
+  };
+
+  // Phone login
+  const signInWithPhone = async (phoneNumber, appVerifier) => {
+    try {
+      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+      return confirmationResult;
+    } catch (error) {
+      console.error('Error signing in with phone:', error);
+      throw error;
+    }
+  };
+
+  // Recaptcha setup for phone login
+  const getRecaptchaVerifier = (containerId) => {
+    return new RecaptchaVerifier(containerId, { size: 'invisible' }, auth);
   };
 
   const logout = async () => {
@@ -65,7 +81,10 @@ export const useAuth = () => {
   return {
     user,
     loading,
-    signInWithGoogle,
+    signInWithEmail,
+    registerWithEmail,
+    signInWithPhone,
+    getRecaptchaVerifier,
     logout
   };
 };

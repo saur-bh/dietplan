@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import PhotoUpload from '../components/PhotoUpload';
+import MicInput from '../components/MicInput';
 import { useNavigate } from 'react-router-dom';
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -18,14 +20,19 @@ const Home = () => {
   const [extractedText, setExtractedText] = useState('');
   const [measurements, setMeasurements] = useState({});
   const [foods, setFoods] = useState([]);
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [micText, setMicText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
 
   const createPrompt = () => {
-    return `You are my personal AI Nutrition Coach and expert meal planner.
+    return `You are my personal genetic-based AI Nutrition Coach and expert meal planner.
 
 My health report:
 ${extractedText || 'No health report provided'}
+
+User-typed or spoken preferences/symptoms:
+${micText || 'None provided'}
 
 My current measurements:
 - Weight: ${measurements.weight}kg
@@ -41,62 +48,13 @@ My current measurements:
 My available foods:
 ${foods.join(', ')}
 
-Design a **4-week fat-loss meal plan** specifically tailored to my profile with:
-- 3-4 meals per day optimized for fat loss and muscle retention
-- Each meal: exact grams, calories, protein, carbs, fat
-- Daily macro targets and totals
-- Weekly grocery lists
-- High-protein focus with controlled carbs and adequate fiber
-- Meal timing recommendations
-- Supplement suggestions if needed
-- Hydration guidance
+${photoUrl ? `My photo is available at this URL: ${photoUrl}` : ''}
 
-Please output the response in this exact JSON format:
-{
-  "weekPlan": [
-    {
-      "week": "Week 1",
-      "days": [
-        {
-          "day": "Day 1",
-          "meals": [
-            {
-              "meal": "Breakfast",
-              "time": "7:00 AM",
-              "items": [
-                {
-                  "food": "Oats",
-                  "grams": 50,
-                  "calories": 190,
-                  "protein": 7,
-                  "carbs": 32,
-                  "fat": 3
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "dailyMacros": {
-    "calories": 2000,
-    "protein": 150,
-    "carbs": 200,
-    "fat": 60
-  },
-  "weeklyGroceryLists": [
-    {
-      "week": 1,
-      "items": ["Oats - 500g", "Chicken breast - 1kg"]
-    }
-  ],
-  "supplements": ["Whey protein", "Multivitamin"],
-  "hydration": "3-4 liters of water daily",
-  "notes": "Additional guidance and tips"
-}
+Geo-location: (auto-detect or user-provided)
 
-Make sure the plan is realistic, sustainable, and uses the foods I have available. Focus on creating variety while maintaining nutritional targets for effective fat loss.`;
+Design a meal plan tailored to my genetics, preferences, and available foods. If the health report is a PDF and text could not be extracted, you may receive the PDF directly for analysis.
+
+Output the response in JSON as before.`;
   };
 
   const handleGeneratePlan = async () => {
@@ -150,7 +108,8 @@ Make sure the plan is realistic, sustainable, and uses the foods I have availabl
         createdAt: new Date().toISOString(),
         measurements,
         foods,
-        healthReportText: extractedText
+        healthReportText: extractedText,
+        photoUrl
       });
 
       console.log('Meal plan saved successfully');
@@ -171,9 +130,9 @@ Make sure the plan is realistic, sustainable, and uses the foods I have availabl
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="w-full max-w-4xl mx-auto space-y-8 px-2 sm:px-4 md:px-8">
       {/* Hero Section */}
-      <div className="text-center bg-gradient-to-br from-blue-50 to-green-50 rounded-xl p-8">
+      <div className="text-center bg-gradient-to-br from-blue-50 to-green-50 rounded-xl p-4 sm:p-6 md:p-8">
         <div className="flex justify-center mb-4">
           <div className="bg-gradient-to-r from-blue-500 to-green-500 p-4 rounded-full">
             <SparklesIcon className="w-8 h-8 text-white" />
@@ -194,6 +153,17 @@ Make sure the plan is realistic, sustainable, and uses the foods I have availabl
         </div>
       )}
 
+      {/* Step 0: Speak or Type Preferences/Symptoms */}
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold">0</div>
+          <h2 className="text-xl font-semibold text-gray-800">Speak or Type Your Preferences / Symptoms</h2>
+        </div>
+        <div className="ml-8">
+          <MicInput onText={setMicText} label="Speak or type your report, symptoms, or food preferences" placeholder="E.g. I feel tired after eating bread. Prefer Mediterranean food. Lactose intolerant..." />
+        </div>
+      </div>
+
       {/* Step 1: Health Report */}
       <div className="space-y-2">
         <div className="flex items-center space-x-2">
@@ -205,6 +175,17 @@ Make sure the plan is realistic, sustainable, and uses the foods I have availabl
         </p>
         <div className="ml-8">
           <UploadReport onTextExtracted={setExtractedText} extractedText={extractedText} />
+        </div>
+      </div>
+
+      {/* Step 1.5: Photo Upload */}
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold">1.5</div>
+          <h2 className="text-xl font-semibold text-gray-800">Upload Photo (Optional)</h2>
+        </div>
+        <div className="ml-8">
+          <PhotoUpload userId={user?.uid} onPhotoUploaded={setPhotoUrl} existingPhotoUrl={photoUrl} />
         </div>
       </div>
 

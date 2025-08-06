@@ -1,36 +1,37 @@
-# AI Diet Coach - Personalized Meal Planning App
+# Genetic Diet Coach – Personalized Nutrition & Fitness App
 
-A full-stack AI-powered diet planner that creates personalized 4-week shredding meal plans based on your health profile, measurements, and available foods.
+A full-stack genetic and LLM-powered diet planner that creates personalized meal plans based on your genetic report, measurements, food preferences, and available foods. The system leverages LLMs (like GPT-4o) to interpret genetic data, user-uploaded reports, typed or spoken preferences, and geo-location to generate actionable, science-backed nutrition and fitness guidance.
 
 ## 🚀 Features
 
-- **Health Report Upload**: Upload PDF, Markdown, or text files containing your health information
-- **Body Measurements**: Input current measurements and fitness goals
-- **Food Availability**: Specify foods available in your location
-- **AI Meal Planning**: Uses OpenAI GPT-4o to generate personalized 4-week meal plans
-- **Meal Tracking**: Track completed meals with progress visualization
-- **Progress Dashboard**: View charts and statistics of your progress
-- **Firebase Integration**: Secure data storage and authentication
-- **Responsive Design**: Beautiful UI that works on all devices
+- **Genetic Report Upload**: Upload your DNA/genetic report (PDF, Markdown, or text). If text extraction fails, the PDF is sent directly to the LLM for analysis.
+- **Flexible Input**: Type or speak your food preferences, eating habits, and goals. The LLM prompt incorporates all user-provided context, including geo-location.
+- **Food Database**: Add foods you have access to; all food items are saved in Firestore and visible for future planning.
+- **Profile & Measurements**: Enter and update your body measurements and personal profile; all data is stored in Firestore for history and future use.
+- **Photo Upload**: Upload your photo (for progress or analysis); images are stored in Firebase Storage and included in the LLM prompt for diet generation.
+- **Personalized Meal Planning**: LLM generates meal plans using your genetic data, preferences, available foods, and location.
+- **Meal Tracking & Dashboard**: Track meals, visualize progress, and see all your data in one place.
+- **Secure Cloud Storage**: All sensitive data is securely stored in Firebase (Firestore & Storage).
+- **Responsive Design**: Works beautifully on all devices.
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: React + TypeScript + Tailwind CSS + Vite
 - **Backend**: Firebase Functions (Node.js)
-- **Database**: Firebase Firestore
-- **Storage**: Firebase Storage
-- **Authentication**: Firebase Auth (Google Sign-in)
-- **AI**: OpenAI GPT-4o API
+- **Database**: Firebase Firestore (stores user profile, measurements, food items, preferences)
+- **Storage**: Firebase Storage (stores user-uploaded photos and reports)
+- **Authentication**: Firebase Auth (Email/Password & Phone OTP)
+- **AI/LLM**: OpenAI GPT-4o API (for prompt-based meal plan generation)
 - **Charts**: Recharts
-- **File Upload**: react-dropzone
-- **PDF Processing**: PDF.js
+- **File Upload**: react-dropzone, voice-to-text for spoken input
+- **PDF Processing**: PDF.js (with fallback to LLM for unextractable PDFs)
 
 ## 📋 Prerequisites
 
 1. **Node.js** (v18 or higher)
 2. **Firebase CLI** (`npm install -g firebase-tools`)
 3. **Firebase Project** with the following enabled:
-   - Authentication (Google provider)
+   - Authentication (Email/Password and Phone)
    - Firestore Database
    - Firebase Storage
    - Firebase Functions
@@ -54,7 +55,7 @@ cd ..
 ### 2. Firebase Configuration
 
 1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
-2. Enable Authentication with Google provider
+2. Enable Authentication with Email/Password and Phone (SMS) providers
 3. Create Firestore database in test mode
 4. Enable Firebase Storage
 5. Get your Firebase config from Project Settings
@@ -136,13 +137,16 @@ firebase deploy --only hosting
 
 ## 🎯 How to Use
 
-1. **Sign In**: Use Google authentication to sign in
-2. **Upload Health Report** (optional): Upload your medical reports or health assessments
-3. **Enter Measurements**: Input your current body measurements and goals
-4. **Add Available Foods**: Specify foods easily available in your location
-5. **Generate Plan**: Click "Generate My Diet Plan" to create your personalized meal plan
-6. **Track Progress**: Use the dashboard to track completed meals and view progress
-7. **Refresh Plan**: After 4 weeks, upload new measurements and generate a fresh plan
+
+### Typical User Flow
+
+1. **Sign In**: Use your email/password or phone number (OTP) to sign in
+2. **Upload Genetic/Health Report**: Upload your DNA/health report (PDF, Markdown, or text). If text can't be extracted, the PDF is sent to the LLM.
+3. **Enter/Update Measurements & Profile**: Input your body measurements, preferences, and goals (typed or spoken). All data is saved in Firestore.
+4. **Add Food Items**: Add foods you have access to; all items are saved and visible for future planning.
+5. **Upload Photo**: Upload a photo for progress tracking or analysis (stored in Firebase Storage and sent to LLM if needed).
+6. **Generate Plan**: The LLM receives your genetic data, measurements, food list, preferences, photo, and geo-location to create a personalized meal plan.
+7. **Track & Visualize**: Track meals, view all available foods, see your measurement history, and visualize progress in the dashboard.
 
 ## 📊 API Usage
 

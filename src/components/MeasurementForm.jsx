@@ -22,12 +22,12 @@ const MeasurementForm = ({ measurements, onMeasurementsChange }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center space-x-2 mb-6">
+      <div className="flex items-center space-x-2 mb-4 sm:mb-6">
         <ScaleIcon className="w-6 h-6 text-blue-600" />
-        <h2 className="text-xl font-semibold text-gray-800">Body Measurements</h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Body Measurements</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -110,54 +110,68 @@ const MeasurementForm = ({ measurements, onMeasurementsChange }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Gender
-            </label>
-            <select
-              value={formData.gender}
-              onChange={(e) => handleInputChange('gender', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+            <div className="flex items-center gap-4 mt-2">
+              <button
+                type="button"
+                className={`flex-1 py-2 rounded-lg border text-center ${formData.gender === 'male' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                onClick={() => handleInputChange('gender', 'male')}
+              >
+                Male
+              </button>
+              <button
+                type="button"
+                className={`flex-1 py-2 rounded-lg border text-center ${formData.gender === 'female' ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                onClick={() => handleInputChange('gender', 'female')}
+              >
+                Female
+              </button>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Activity Level
-            </label>
-            <select
-              value={formData.activityLevel}
-              onChange={(e) => handleInputChange('activityLevel', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select activity level</option>
-              <option value="sedentary">Sedentary (desk job, no exercise)</option>
-              <option value="light">Light activity (light exercise 1-3 days/week)</option>
-              <option value="moderate">Moderate activity (moderate exercise 3-5 days/week)</option>
-              <option value="active">Very active (hard exercise 6-7 days/week)</option>
-              <option value="extremely">Extremely active (physical job + exercise)</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Activity Level</label>
+            <div className="flex flex-col gap-2 mt-2">
+              {[
+                { value: 'sedentary', label: 'Sedentary' },
+                { value: 'light', label: 'Light' },
+                { value: 'moderate', label: 'Moderate' },
+                { value: 'active', label: 'Active' },
+                { value: 'extremely', label: 'Extremely' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`w-full py-2 rounded-lg border text-left px-3 ${formData.activityLevel === opt.value ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                  onClick={() => handleInputChange('activityLevel', opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-6">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Primary Goal
-        </label>
-        <select
-          value={formData.goal}
-          onChange={(e) => handleInputChange('goal', e.target.value)}
-          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="fat-loss">Fat Loss / Shredding</option>
-          <option value="muscle-gain">Muscle Gain</option>
-          <option value="maintenance">Maintenance</option>
-          <option value="recomposition">Body Recomposition</option>
-        </select>
+      <div className="mt-4 sm:mt-6">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Primary Goal</label>
+        <div className="flex flex-col gap-2 mt-2 max-w-xs">
+          {[
+            { value: 'fat-loss', label: 'Fat Loss / Shredding' },
+            { value: 'muscle-gain', label: 'Muscle Gain' },
+            { value: 'maintenance', label: 'Maintenance' },
+            { value: 'recomposition', label: 'Body Recomposition' }
+          ].map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`w-full py-2 rounded-lg border text-left px-3 ${formData.goal === opt.value ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+              onClick={() => handleInputChange('goal', opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
