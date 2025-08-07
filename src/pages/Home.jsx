@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { jsonRepair } from '../utils/jsonRepair';
 import PhotoUpload from '../components/PhotoUpload';
 import MicInput from '../components/MicInput';
 import { useNavigate } from 'react-router-dom';
@@ -24,9 +25,15 @@ const Home = () => {
   const [micText, setMicText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
+  const [planResult, setPlanResult] = useState(null);
 
   const createPrompt = () => {
     return `You are my personal genetic-based AI Nutrition Coach and expert meal planner.
+
+Context:
+- This plan may be for a child, or for someone with ADHD or autism, so please consider neurodiversity, sensory sensitivities, and behavioral needs.
+- The user may have an Indian cultural background, so respect Indian food preferences, family eating patterns, and common dietary restrictions (e.g., vegetarianism, religious fasting, spice tolerance).
+- If the user is a child, ensure the plan is age-appropriate, fun, and easy for parents to implement.
 
 My health report:
 ${extractedText || 'No health report provided'}
@@ -52,7 +59,7 @@ ${photoUrl ? `My photo is available at this URL: ${photoUrl}` : ''}
 
 Geo-location: (auto-detect or user-provided)
 
-Design a meal plan tailored to my genetics, preferences, and available foods. If the health report is a PDF and text could not be extracted, you may receive the PDF directly for analysis.
+Design a meal plan tailored to my genetics, neurotype, preferences, and available foods. If the health report is a PDF and text could not be extracted, you may receive the PDF directly for analysis.
 
 Output the response in JSON as before.`;
   };
@@ -84,11 +91,32 @@ Output the response in JSON as before.`;
       try {
         // Extract JSON from response if it's wrapped in text
         const jsonMatch = response.match(/\{[\s\S]*\}/);
-        const jsonString = jsonMatch ? jsonMatch[0] : response;
-        mealPlan = JSON.parse(jsonString);
+        let jsonString = jsonMatch ? jsonMatch[0] : response;
+        console.log('Raw AI response before JSON.parse:', response);
+        try {
+          mealPlan = JSON.parse(jsonString);
+        } catch (parseError1) {
+          // Try to repair JSON and parse again
+          try {
+            jsonString = jsonRepair(jsonString);
+            mealPlan = JSON.parse(jsonString);
+          } catch (parseError2) {
+            console.error('Error parsing JSON:', parseError2);
+            setError(
+              <div>
+                <b>Failed to parse meal plan from AI response.</b>
+                <div className="text-xs">Raw response:</div>
+                <pre className="bg-gray-100 text-xs p-2 rounded overflow-x-auto max-h-48 whitespace-pre-wrap">{String(response)}</pre>
+              </div>
+            );
+            return;
+          }
+        }
+        setPlanResult(mealPlan);
       } catch (parseError) {
-        console.error('Error parsing JSON:', parseError);
-        throw new Error('Failed to parse meal plan from AI response. Please try again.');
+        // Should not reach here
+        setError('Unknown error parsing meal plan.');
+        return;
       }
 
       // Save to Firebase
@@ -115,7 +143,7 @@ Output the response in JSON as before.`;
       console.log('Meal plan saved successfully');
 
       // Navigate to dashboard
-      navigate('/dashboard');
+      // Optionally, navigate or just show the plan below
 
     } catch (error) {
       console.error('Error generating meal plan:', error);
@@ -150,6 +178,99 @@ Output the response in JSON as before.`;
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Show meal plan result if available */}
+      {planResult && (
+        <div className="mt-10 bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-green-700 mb-4">Your Personalized Meal Plan</h2>
+          {planResult.meal_plan?.overview && (
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-blue-700 mb-2">Overview</h3>
+              <ul className="list-disc ml-6 text-gray-700">
+                <li><b>Goal:</b> {planResult.meal_plan.overview.goal}</li>
+                {planResult.meal_plan.overview.genetic_considerations && (
+                  <li><b>Genetic Considerations:</b>
+                    <ul className="list-disc ml-6">
+                      {Object.entries(planResult.meal_plan.overview.genetic_considerations).map(([k, v]) => (
+                        <li key={k}><b>{k.replace(/_/g, ' ')}:</b> {v}</li>
+                      ))}
+                    </ul>
+                  </li>
+                )}
+                {planResult.meal_plan.overview.neurodiversity_considerations && (
+                  <li><b>Neurodiversity Considerations:</b>
+                    <ul className="list-disc ml-6">
+                      {Object.entries(planResult.meal_plan.overview.neurodiversity_considerations).map(([k, v]) => (
+                        <li key={k}><b>{k.replace(/_/g, ' ')}:</b> {v}</li>
+                      ))}
+                    </ul>
+                  </li>
+                )}
+                {planResult.meal_plan.overview.cultural_preferences && (
+                  <li><b>Cultural Preferences:</b>
+                    <ul className="list-disc ml-6">
+                      {Object.entries(planResult.meal_plan.overview.cultural_preferences).map(([k, v]) => (
+                        <li key={k}><b>{k.replace(/_/g, ' ')}:</b> {v}</li>
+                      ))}
+                    </ul>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+          {planResult.meal_plan?.daily_meal_plan && (
+            <div>
+              <h3 className="text-xl font-semibold text-blue-700 mb-2">Day-by-Day Plan</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border text-sm">
+                  <thead>
+                    <tr className="bg-blue-100">
+                      <th className="p-2 border">Day</th>
+                      <th className="p-2 border">Breakfast</th>
+                      <th className="p-2 border">Lunch</th>
+                      <th className="p-2 border">Dinner</th>
+                      <th className="p-2 border">Snacks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(planResult.meal_plan.daily_meal_plan).map(([day, meals]) => (
+                      <tr key={day} className="border-b">
+                        <td className="p-2 border font-bold capitalize">{day}</td>
+                        {['breakfast', 'lunch', 'dinner'].map((mealType) => (
+                          <td className="p-2 border align-top" key={mealType}>
+                            {meals[mealType] ? (
+                              <div>
+                                <div className="font-semibold">{meals[mealType].name}</div>
+                                <div className="text-xs text-gray-600 mb-1">{meals[mealType].nutritional_benefits}</div>
+                                <div className="text-xs"><b>Ingredients:</b> {meals[mealType].ingredients?.join(', ')}</div>
+                                <div className="text-xs"><b>Instructions:</b> {meals[mealType].instructions}</div>
+                              </div>
+                            ) : <span className="text-gray-400">-</span>}
+                          </td>
+                        ))}
+                        <td className="p-2 border align-top">
+                          {meals.snacks && meals.snacks.length > 0 ? (
+                            <ul className="list-disc ml-4">
+                              {meals.snacks.map((snack, idx) => (
+                                <li key={idx}>
+                                  <div className="font-semibold">{snack.name}</div>
+                                  <div className="text-xs text-gray-600 mb-1">{snack.nutritional_benefits}</div>
+                                  <div className="text-xs"><b>Ingredients:</b> {snack.ingredients?.join(', ')}</div>
+                                  <div className="text-xs"><b>Instructions:</b> {snack.instructions}</div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : <span className="text-gray-400">-</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -245,7 +366,19 @@ Output the response in JSON as before.`;
       </div>
 
       {isGenerating && (
-        <div className="text-center py-8">
+        <div className="relative text-center py-8">
+          {photoUrl && (
+            <div className="flex flex-col items-center justify-center mb-6 relative">
+              <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 border-blue-300 shadow-lg">
+                <img src={photoUrl} alt="Scanning..." className="w-full h-full object-cover" />
+                {/* Animated scanning bar */}
+                <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+                  <div className="absolute left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-green-300 to-blue-400 opacity-80 animate-scan-bar"></div>
+                </div>
+              </div>
+              <div className="mt-3 text-blue-600 font-semibold text-base animate-pulse">Scanning your photo for personalized insights...</div>
+            </div>
+          )}
           <LoadingSpinner message="AI is analyzing your profile and creating your personalized meal plan..." />
         </div>
       )}

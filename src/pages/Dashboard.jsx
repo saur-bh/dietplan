@@ -3,6 +3,8 @@ import { collection, doc, getDocs, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../hooks/useAuth';
 import MealPlanView from '../components/MealPlanView';
+import { generateDietPlan } from '../api/dietApi';
+import MeasurementForm from '../components/MeasurementForm';
 import TrackingDashboard from '../components/TrackingDashboard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { format } from 'date-fns';
@@ -10,123 +12,76 @@ import { ChartBarIcon, CalendarDaysIcon, ArrowPathIcon } from '@heroicons/react/
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [mealPlan, setMealPlan] = useState(null);
+  const [mealPlans, setMealPlans] = useState([]);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [trackedMeals, setTrackedMeals] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('plan');
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (user) {
-      loadUserData();
-    }
-  }, [user]);
-
-  const loadUserData = async () => {
+  const [showMeasurementModal, setShowMeasurementModal] = useState(false);
+  const [measurementData, setMeasurementData] = useState(null);
+  const [regenerating, setRegenerating] = useState(false);
+  // Handler to regenerate meal plan with new measurements
+  const handleRegeneratePlan = async (newMeasurements) => {
+    if (!user) return;
+    setRegenerating(true);
     try {
-      setLoading(true);
-      
-      // Load meal plans
-      const mealPlansRef = collection(db, 'users', user.uid, 'mealPlans');
-      const mealPlansSnapshot = await getDocs(mealPlansRef);
-      
-      if (!mealPlansSnapshot.empty) {
-        // Get the most recent meal plan
-        const plans = mealPlansSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        const latestPlan = plans.sort((a, b) => 
-          new Date(b.createdAt) - new Date(a.createdAt)
-        )[0];
-        setMealPlan(latestPlan);
-      }
-
-      // Load tracking data for today
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const trackingRef = doc(db, 'users', user.uid, 'trackingLogs', today);
-      const trackingSnapshot = await getDoc(trackingRef);
-      
-      if (trackingSnapshot.exists()) {
-        setTrackedMeals(trackingSnapshot.data().trackedMeals || {});
-      }
-
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      setError('Failed to load your data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMealToggle = async (mealKey, isTracked) => {
-    const updatedTrackedMeals = {
-      ...trackedMeals,
-      [mealKey]: isTracked
-    };
-    
-    setTrackedMeals(updatedTrackedMeals);
-
-    try {
-      // Save to Firebase
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const trackingRef = doc(db, 'users', user.uid, 'trackingLogs', today);
-      
-      await setDoc(trackingRef, {
-        date: today,
-        trackedMeals: updatedTrackedMeals,
+      // Save new measurements to user doc
+      const userDocRef = doc(db, 'users', user.uid);
+      await setDoc(userDocRef, {
+        measurements: newMeasurements,
         lastUpdated: new Date().toISOString()
       }, { merge: true });
 
-    } catch (error) {
-      console.error('Error saving tracking data:', error);
-      // Revert the state on error
-      setTrackedMeals(trackedMeals);
+      // Get foods and healthReportText from latest plan (or fetch from Firestore if needed)
+      const latestPlan = mealPlans[0];
+      const foods = latestPlan?.foods || [];
+      const healthReportText = latestPlan?.healthReportText || '';
+
+      // Call backend to generate new plan
+      await generateDietPlan({
+        healthReportText,
+        measurements: newMeasurements,
+        foods
+      });
+
+      setShowMeasurementModal(false);
+      setMeasurementData(null);
+      // Reload user data to show new plan
+      window.location.reload();
+    } catch (e) {
+      // Optionally show error
+    } finally {
+      setRegenerating(false);
+    }
+  };
+  const [activeTab, setActiveTab] = useState('plan');
+  const [saving, setSaving] = useState(false);
+
+  // Save tracked meal quantities to Firestore
+  const handleQuantityChange = async (mealKey, itemIndex, value) => {
+    if (!user) return;
+    setTrackedMeals(prev => ({
+      ...prev,
+      [`${mealKey}-${itemIndex}`]: value
+    }));
+    // Save to Firestore for today
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const trackingRef = doc(db, 'users', user.uid, 'trackingLogs', today);
+    setSaving(true);
+    try {
+      await setDoc(trackingRef, {
+        trackedMeals: {
+          ...trackedMeals,
+          [`${mealKey}-${itemIndex}`]: value
+        }
+      }, { merge: true });
+    } catch (e) {
+      // Optionally show error
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleRefreshPlan = () => {
-    // Navigate back to home to create a new plan
-    window.location.href = '/';
-  };
-
-  if (loading) {
-    return <LoadingSpinner message="Loading your dashboard..." />;
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-600 mb-4">{error}</p>
-        <button
-          onClick={loadUserData}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  if (!mealPlan) {
-    return (
-      <div className="text-center py-12">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-md mx-auto">
-          <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">No Meal Plan Found</h2>
-          <p className="text-gray-600 mb-6">
-            You haven't created a meal plan yet. Let's get started!
-          </p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Create My First Plan
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Find selected meal plan
+  const mealPlan = mealPlans.find(p => p.id === selectedPlanId);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -138,13 +93,48 @@ const Dashboard = () => {
             Plan created on {new Date(mealPlan.createdAt).toLocaleDateString()}
           </p>
         </div>
-        <button
-          onClick={handleRefreshPlan}
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
-        >
-          <ArrowPathIcon className="w-5 h-5" />
-          <span>Refresh Plan</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowMeasurementModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          >
+            <span>Update Measurements</span>
+          </button>
+          <button
+            onClick={handleRefreshPlan}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+          >
+            <ArrowPathIcon className="w-5 h-5" />
+            <span>Refresh Plan</span>
+          </button>
+        </div>
+      {/* Measurement Modal */}
+      {showMeasurementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowMeasurementModal(false)}
+            >
+              ×
+            </button>
+            <h2 className="text-xl font-bold mb-4">Update Your Measurements</h2>
+            <MeasurementForm
+              measurements={measurementData || {}}
+              onMeasurementsChange={setMeasurementData}
+            />
+            <div className="flex justify-end mt-4">
+              <button
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                onClick={() => handleRegeneratePlan(measurementData)}
+                disabled={regenerating}
+              >
+                {regenerating ? 'Updating...' : 'Save & Regenerate Plan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Tabs */}
@@ -184,8 +174,9 @@ const Dashboard = () => {
         {activeTab === 'plan' && (
           <MealPlanView 
             mealPlan={mealPlan} 
-            onMealToggle={handleMealToggle}
+            onMealToggle={() => {}}
             trackedMeals={trackedMeals}
+            onQuantityChange={handleQuantityChange}
           />
         )}
         {activeTab === 'tracking' && (

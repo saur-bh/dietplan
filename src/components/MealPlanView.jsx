@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { CalendarDaysIcon, ClockIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/solid';
 
-const MealPlanView = ({ mealPlan, onMealToggle, trackedMeals = {} }) => {
+const MealPlanView = ({ mealPlan, onMealToggle, trackedMeals = {}, onQuantityChange }) => {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedDay, setSelectedDay] = useState(0);
+  const [quantities, setQuantities] = useState({});
 
   if (!mealPlan || !mealPlan.weekPlan) {
     return (
@@ -53,6 +54,16 @@ const MealPlanView = ({ mealPlan, onMealToggle, trackedMeals = {} }) => {
 
   const dayMacros = calculateDayMacros(currentDay.meals || []);
   const targetMacros = mealPlan.dailyMacros || dayMacros;
+
+  const handleQuantityChange = (mealKey, itemIndex, value) => {
+    setQuantities(prev => ({
+      ...prev,
+      [`${mealKey}-${itemIndex}`]: value
+    }));
+    if (onQuantityChange) {
+      onQuantityChange(mealKey, itemIndex, value);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -176,17 +187,28 @@ const MealPlanView = ({ mealPlan, onMealToggle, trackedMeals = {} }) => {
 
                 {/* Meal Items */}
                 <div className="space-y-2 mb-4">
-                  {meal.items.map((item, itemIndex) => (
-                    <div key={itemIndex} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                      <div>
-                        <span className="text-gray-800 font-medium">{item.food}</span>
-                        <span className="text-gray-600 ml-2">({item.grams}g)</span>
+                  {meal.items.map((item, itemIndex) => {
+                    const mealKey = getMealKey(selectedWeek, selectedDay, mealIndex);
+                    return (
+                      <div key={itemIndex} className="flex flex-col sm:flex-row justify-between items-center py-2 border-b border-gray-100 last:border-b-0 gap-2">
+                        <div className="flex flex-col sm:flex-row items-center gap-2">
+                          <span className="text-gray-800 font-medium">{item.food}</span>
+                          <span className="text-gray-600">({item.grams}g)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="Qty eaten (g)"
+                            className="w-28 px-2 py-1 border rounded text-sm"
+                            value={quantities[`${mealKey}-${itemIndex}`] || ''}
+                            onChange={e => handleQuantityChange(mealKey, itemIndex, e.target.value)}
+                          />
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {item.calories}cal • {item.protein}p • {item.carbs}c • {item.fat}f
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {item.calories}cal • {item.protein}p • {item.carbs}c • {item.fat}f
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Meal Macros Summary */}
